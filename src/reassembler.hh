@@ -1,6 +1,10 @@
 #pragma once
 
 #include "byte_stream.hh"
+#include <set>
+
+using namespace std;
+typedef pair<uint64_t, string> Segment;
 
 class Reassembler
 {
@@ -42,4 +46,11 @@ public:
 
 private:
   ByteStream output_; // the Reassembler writes to this ByteStream
+  uint64_t next_index_ = 0; // index of the next byte to be written
+  
+  set<Segment> rbuffer_ {}; // stores unassembled data
+  uint64_t unassembled_size_ = 0;
+  bool eof_flag_ {false};
+
+  void merge_insert(Segment segment);
 };
