@@ -13,7 +13,6 @@ bool Writer::is_closed() const
 void Writer::push( string data )
 {
   // Your code here.
-  (void)data;
   uint64_t valid_size = (available_capacity() >= data.size() 
   ? data.size() : available_capacity());
   buffer_ += data.substr(0, valid_size);
