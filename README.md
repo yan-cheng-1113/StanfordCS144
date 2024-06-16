@@ -1,2 +1,2 @@
 # StanfordCS144
-Projects used for Stanford CS144
+Projects used for CS144 at Stanford University
