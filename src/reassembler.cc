@@ -93,7 +93,7 @@ void Reassembler::insert( uint64_t first_index, string data, bool is_last_substr
     uint64_t wsize = (first_index + data.size() - next_index_ <= writer().available_capacity() - unassembled_size_
                       ? first_index + data.size() - next_index_ : writer().available_capacity() - unassembled_size_);
     
-    if (first_index + data.size() - next_index_ > writer().available_capacity() - unassembled_size_) {
+    if (first_index + data.size() - next_index_ > writer().available_capacity()) {
       trimmed = true;
     }
     data = data.substr(next_index_ - first_index, wsize);
