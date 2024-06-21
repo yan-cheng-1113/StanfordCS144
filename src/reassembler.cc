@@ -90,7 +90,7 @@ void Reassembler::insert( uint64_t first_index, string data, bool is_last_substr
   }
 
   if (first_index < next_index_ && next_index_ <= first_index + data.size()){
-    uint64_t wsize = (first_index + data.size() - next_index_ <= writer().available_capacity() - unassembled_size_
+    uint64_t wsize = (first_index + data.size() - next_index_ <= writer().available_capacity()
                       ? first_index + data.size() - next_index_ : writer().available_capacity());
     
     if (first_index + data.size() - next_index_ > writer().available_capacity()) {
