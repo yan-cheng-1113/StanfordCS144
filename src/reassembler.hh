@@ -44,6 +44,18 @@ public:
   // Access output stream writer, but const-only (can't write from outside)
   const Writer& writer() const { return output_.writer(); }
 
+  // Return the index of the first unassembled byte
+  uint64_t first_unassembled() const { return next_index_; }
+
+  // Return the index of the first unacceptable byte
+  // uint64_t first_unaccepted() const { 
+  //   if (rbuffer_.empty()){
+  //     return next_index_ + writer().available_capacity();
+  //   }else if (rbuffer_.begin()->first == ){
+
+  //   }
+
+  // }
 private:
   ByteStream output_; // the Reassembler writes to this ByteStream
   uint64_t next_index_ = 0; // index of the next byte to be written
