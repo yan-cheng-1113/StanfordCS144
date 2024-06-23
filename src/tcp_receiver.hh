@@ -29,7 +29,6 @@ private:
   Reassembler reassembler_;
   std::optional<Wrap32> isn_ {};
   std::optional<Wrap32> ackno_ {};
-  bool RST_ {};
   
   // TCPReceiverMessage tcpReceiverMessage_ {.window_size 
   //       = static_cast<uint16_t> ((reassembler_.writer().available_capacity()) <= UINT16_MAX ? 

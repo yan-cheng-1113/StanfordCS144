@@ -5,17 +5,16 @@ using namespace std;
 void TCPReceiver::receive( TCPSenderMessage message )
 {
   // Your code here.
-  RST_ = message.RST;
+  if(message.RST){
+    reader().writer().set_error();
+  } 
+
   if (!isn_.has_value()){
     if (message.SYN) {
       isn_ = message.seqno;
       ackno_ = message.seqno + message.sequence_length();
-    }
-    if(message.FIN) {
-      reader().writer().close();
-    }
-    if(message.RST){
-      reader().writer().set_error();
+      uint64_t abs_seqno = message.seqno.unwrap(isn_.value(), reassembler_.first_unassembled());
+      reassembler_.insert(abs_seqno, message.payload, message.FIN);
     }
   } 
   else {
@@ -27,10 +26,7 @@ void TCPReceiver::receive( TCPSenderMessage message )
     else{
       ackno_ = message.seqno.wrap(reassembler_.first_unassembled() + 1, isn_.value());
     }
-    if(message.RST){
-      reader().writer().set_error();
-    }
-  } 
+  }
 }
 
 TCPReceiverMessage TCPReceiver::send() const
@@ -38,6 +34,8 @@ TCPReceiverMessage TCPReceiver::send() const
   // Your code here. 
   uint16_t wnd_size_ = static_cast<uint16_t> ((reassembler_.writer().available_capacity()) <= UINT16_MAX ? 
         (reassembler_.writer().available_capacity()) : UINT16_MAX); 
+  
+  bool RST_ = reassembler_.reader().has_error();
 
   TCPReceiverMessage tcpReceiverMessage_ {.ackno = ackno_,
                                           .window_size = wnd_size_, 
