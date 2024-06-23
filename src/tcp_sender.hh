@@ -11,6 +11,7 @@
 #include <optional>
 #include <queue>
 
+using namespace std;
 class TCPSender
 {
 public:
@@ -47,5 +48,14 @@ private:
   // Variables initialized in constructor
   ByteStream input_;
   Wrap32 isn_;
+  Wrap32 zero_ {0}; // 0 in Wrap32
   uint64_t initial_RTO_ms_;
+  uint64_t RTO_ms_ {initial_RTO_ms_};
+  uint64_t rtrns_timer_ {0};
+  queue<TCPSenderMessage> outstanding_segs_ {};
+  uint64_t seqno_ {0};
+  uint64_t cur_ackno_ {0};
+  uint64_t rtrns_cnt_ {0};
+  uint16_t wnd_size_ {1};
+  bool zero_wnd_ {false};
 };
