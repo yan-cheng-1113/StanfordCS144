@@ -19,11 +19,13 @@ void TCPReceiver::receive( TCPSenderMessage message )
   } 
   else {
     uint64_t abs_seqno = message.seqno.unwrap(isn_.value(), reassembler_.first_unassembled());
-    reassembler_.insert(abs_seqno - 1, message.payload, message.FIN);
+    reassembler_.insert(abs_seqno - 1, message.payload, message.FIN); // Subtract one to get stream index
     if (writer().is_closed()){
+      // The case with SYN and FIN
       ackno_ = message.seqno.wrap(reassembler_.first_unassembled() + 2, isn_.value());
     }
     else{
+      // The case with only SYN
       ackno_ = message.seqno.wrap(reassembler_.first_unassembled() + 1, isn_.value());
     }
   }
