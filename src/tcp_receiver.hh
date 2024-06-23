@@ -30,8 +30,6 @@ private:
   std::optional<Wrap32> isn_ {};
   std::optional<Wrap32> ackno_ {};
   bool RST_ {};
-  uint16_t wnd_size_ = static_cast<uint16_t> ((reassembler_.writer().available_capacity()) <= UINT16_MAX ? 
-        (reassembler_.writer().available_capacity()) : UINT16_MAX); 
   
   // TCPReceiverMessage tcpReceiverMessage_ {.window_size 
   //       = static_cast<uint16_t> ((reassembler_.writer().available_capacity()) <= UINT16_MAX ? 

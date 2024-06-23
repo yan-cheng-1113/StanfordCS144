@@ -27,7 +27,6 @@ void TCPReceiver::receive( TCPSenderMessage message )
     else{
       ackno_ = message.seqno.wrap(reassembler_.first_unassembled() + 1, isn_.value());
     }
-    wnd_size_ = writer().available_capacity();
     if(message.RST){
       reader().writer().set_error();
     }
@@ -37,9 +36,11 @@ void TCPReceiver::receive( TCPSenderMessage message )
 TCPReceiverMessage TCPReceiver::send() const
 {
   // Your code here. 
-  // wnd_size_ = writer().available_capacity();
+  uint16_t wnd_size_ = static_cast<uint16_t> ((reassembler_.writer().available_capacity()) <= UINT16_MAX ? 
+        (reassembler_.writer().available_capacity()) : UINT16_MAX); 
+
   TCPReceiverMessage tcpReceiverMessage_ {.ackno = ackno_,
-    .window_size = wnd_size_, 
-    .RST = RST_};
+                                          .window_size = wnd_size_, 
+                                          .RST = RST_};
   return {tcpReceiverMessage_};
 }
