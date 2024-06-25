@@ -44,6 +44,9 @@ public:
   // Access input stream reader, but const-only (can't read from outside)
   const Reader& reader() const { return input_.reader(); }
 
+  // Convert a Wrap32 type into uint64_t type
+  uint64_t unwrap_num ( const Wrap32& num ) const { return num.unwrap(isn_, this->input_.reader().bytes_popped()); }
+
 private:
   // Variables initialized in constructor
   ByteStream input_;
