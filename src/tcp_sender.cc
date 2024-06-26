@@ -6,7 +6,7 @@ using namespace std;
 uint64_t TCPSender::sequence_numbers_in_flight() const
 {
   // Your code here.
-  return seqno_ - cur_ackno_;
+  return unwrap_num(seqno_) - unwrap_num(cur_ackno_);
 }
 
 uint64_t TCPSender::consecutive_retransmissions() const
@@ -18,13 +18,37 @@ uint64_t TCPSender::consecutive_retransmissions() const
 void TCPSender::push( const TransmitFunction& transmit )
 {
   // Your code here.
-  (void)transmit;
+  TCPSenderMessage tcpSenderMessage {};
+  string payload_ {};
+  read(input_.reader(), wnd_size_, payload_);
+  if (payload_.size() > wnd_size_) {
+    payload_ = payload_.substr(0, wnd_size_);
+  }
+  if(!sync_) {
+    sync_ = true;
+    tcpSenderMessage.SYN = true;
+  } else {
+    tcpSenderMessage.SYN = false;
+    if (payload_.empty()) {
+      return;
+    }
+  }
+  tcpSenderMessage.seqno = seqno_;
+  tcpSenderMessage.payload = payload_;
+  tcpSenderMessage.FIN = input_.reader().is_finished();
+  tcpSenderMessage.RST = input_.has_error();
+  transmit(tcpSenderMessage);
+  outstanding_segs_.push(tcpSenderMessage);
+  wnd_size_ -= payload_.size();
+  rtrns_cnt_ ++;
+  seqno_ = seqno_ + tcpSenderMessage.sequence_length();
+  rtrns_cnt_ ++;
 }
 
 TCPSenderMessage TCPSender::make_empty_message() const
 {
   // Your code here.
-  TCPSenderMessage empty_message {zero_ + seqno_, false, "", false, input_.has_error()};
+  TCPSenderMessage empty_message {seqno_, false, "", false, input_.has_error()};
   return empty_message;
 }
 
@@ -43,14 +67,14 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
   }
   if(msg.ackno.has_value()) {
     Wrap32 new_ackno = msg.ackno.value();
-    if (unwrap_num(new_ackno) > cur_ackno_) {
-      cur_ackno_ = unwrap_num(new_ackno);
+    if (unwrap_num(new_ackno) > unwrap_num(cur_ackno_)) {
+      cur_ackno_ = new_ackno;
     }else {
       return;
     }
     // Remove acked segments
     while(!outstanding_segs_.empty() 
-          && cur_ackno_ >= unwrap_num(outstanding_segs_.front().seqno)) {
+          && unwrap_num(cur_ackno_) >= unwrap_num(outstanding_segs_.front().seqno)) {
             outstanding_segs_.pop();
     }
   }
