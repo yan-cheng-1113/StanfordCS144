@@ -18,10 +18,11 @@ uint64_t TCPSender::consecutive_retransmissions() const
 void TCPSender::push( const TransmitFunction& transmit )
 {
   // Your code here.
-  uint64_t pay_size = reader().bytes_buffered();
-  // If the writer has been closed, check if there is space for fin. 
-  // To avoid mutilpe fins, check for max_payload_size
-  if (input_.writer().is_closed() 
+  while(sequence_numbers_in_flight() < wnd_size_){
+    uint64_t pay_size = reader().bytes_buffered();
+    // If the writer has been closed, check if there is space for fin. 
+    // To avoid mutilpe fins, check for max_payload_size
+    if (input_.writer().is_closed() 
         && pay_size < wnd_size_ 
         && pay_size <= TCPConfig::MAX_PAYLOAD_SIZE) {
       // If fin has been sent, just return
@@ -29,15 +30,13 @@ void TCPSender::push( const TransmitFunction& transmit )
         return;
       }
       fin_ = true;
-  }
-  while(sequence_numbers_in_flight() < wnd_size_){
+    }
     // If fin has been sent, just return
     if (fin_sent_){
       return;
     }
     TCPSenderMessage tcpSenderMessage {.seqno = seqno_, .FIN = fin_, .RST = input_.has_error()};
     string payload_ {};
-    pay_size = reader().bytes_buffered();
     if(!sync_) {
       sync_ = true;
       tcpSenderMessage.SYN = true;
