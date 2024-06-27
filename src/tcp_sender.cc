@@ -87,6 +87,13 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
     if (unwrap_num(new_ackno) > unwrap_num(seqno_)) {
       return;
     }
+
+    if (!outstanding_segs_.empty()) {
+      if (unwrap_num(new_ackno) < unwrap_num(cur_ackno_) + outstanding_segs_.front().sequence_length()){
+        return;
+      }
+    }
+
     cur_ackno_ = new_ackno;
     // Remove acked segments
     while(!outstanding_segs_.empty() 
