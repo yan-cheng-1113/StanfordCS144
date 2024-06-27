@@ -40,9 +40,7 @@ void TCPSender::push( const TransmitFunction& transmit )
   transmit(tcpSenderMessage);
   outstanding_segs_.push(tcpSenderMessage);
   wnd_size_ -= payload_.size();
-  rtrns_cnt_ ++;
   seqno_ = seqno_ + tcpSenderMessage.sequence_length();
-  rtrns_cnt_ ++;
 }
 
 TCPSenderMessage TCPSender::make_empty_message() const
@@ -67,36 +65,51 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
   }
   if(msg.ackno.has_value()) {
     Wrap32 new_ackno = msg.ackno.value();
-    if (unwrap_num(new_ackno) > unwrap_num(cur_ackno_)) {
-      cur_ackno_ = new_ackno;
-    }else {
+    if (unwrap_num(new_ackno) <= unwrap_num(cur_ackno_)) {
       return;
     }
+    if (unwrap_num(new_ackno) > unwrap_num(seqno_)) {
+      return;
+    }
+    cur_ackno_ = new_ackno;
+    RTO_ms_ = initial_RTO_ms_;
     // Remove acked segments
     while(!outstanding_segs_.empty() 
-          && unwrap_num(cur_ackno_) >= unwrap_num(outstanding_segs_.front().seqno)) {
+          && unwrap_num(cur_ackno_) > unwrap_num(outstanding_segs_.front().seqno)) {
             outstanding_segs_.pop();
     }
+    if(fin) {
+      fin_ack_ = true;
+    }
+    rtrns_cnt_ = 0;
   }
 }
 
 void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& transmit )
 {
   // Your code here.
+  if (rtrns_cnt_ > TCPConfig::MAX_RETX_ATTEMPTS) {
+    return;
+  }
   if (outstanding_segs_.empty()) {
     rtrns_cnt_ = 0;
     RTO_ms_ = initial_RTO_ms_;
     return;
   }
-  rtrns_timer_ += ms_since_last_tick;
+  if (rtrns_timer_ != 0) {
+    rtrns_timer_ += ms_since_last_tick;
+  }else {
+    rtrns_timer_ = ms_since_last_tick;
+  }
+  
   if(rtrns_timer_ >= RTO_ms_) {
-    if (wnd_size_ != 1 && !zero_wnd_) {
+    transmit(outstanding_segs_.front()); // Retransmit the oldest unACKed segment
+    if (!zero_wnd_) {
       RTO_ms_ *= 2; // Double the retransmission time
     }
-    else if (zero_wnd_){
-      RTO_ms_ = initial_RTO_ms_; 
-    }
-    transmit(outstanding_segs_.front()); // Retransmit the oldest unACKed segment
+    // else if (zero_wnd_){
+    //   RTO_ms_ = initial_RTO_ms_; 
+    // }
     rtrns_cnt_ ++;
     rtrns_timer_ = 0; 
   }
