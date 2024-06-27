@@ -18,29 +18,49 @@ uint64_t TCPSender::consecutive_retransmissions() const
 void TCPSender::push( const TransmitFunction& transmit )
 {
   // Your code here.
-  TCPSenderMessage tcpSenderMessage {};
-  string payload_ {};
-  read(input_.reader(), wnd_size_, payload_);
-  if (payload_.size() > wnd_size_) {
-    payload_ = payload_.substr(0, wnd_size_);
+  uint64_t pay_size = reader().bytes_buffered();
+  if (input_.writer().is_closed() 
+        && pay_size < wnd_size_ 
+        && pay_size <= TCPConfig::MAX_PAYLOAD_SIZE) {
+      // If fin has been sent, just return
+      if (fin_sent_) {
+        return;
+      }
+      fin_ = true;
   }
-  if(!sync_) {
-    sync_ = true;
-    tcpSenderMessage.SYN = true;
-  } else {
-    tcpSenderMessage.SYN = false;
-    if (payload_.empty()) {
+  while(sequence_numbers_in_flight() < wnd_size_){
+    // If fin has been sent, just return
+    if (fin_sent_){
       return;
     }
+    TCPSenderMessage tcpSenderMessage {.seqno = seqno_, .FIN = fin_, .RST = input_.has_error()};
+    string payload_ {};
+    pay_size = reader().bytes_buffered();
+    if(!sync_) {
+      sync_ = true;
+      tcpSenderMessage.SYN = true;
+      tcpSenderMessage.seqno = isn_;
+    } else {
+      tcpSenderMessage.SYN = false;
+    }
+    // If the writer has been closed, check if there is space for fin. 
+    // To avoid mutilpe fins, check for max_payload_size
+    
+    pay_size = min(pay_size, wnd_size_ - sequence_numbers_in_flight() - tcpSenderMessage.SYN);
+    pay_size = min(pay_size, TCPConfig::MAX_PAYLOAD_SIZE);
+    read(input_.reader(), pay_size, payload_);
+    tcpSenderMessage.payload = payload_;
+    // If the message is empty, return
+    if (tcpSenderMessage.sequence_length() == 0) {
+      return;
+    }
+    if (fin_) {
+      fin_sent_ = true;
+    }
+    transmit(tcpSenderMessage);
+    outstanding_segs_.push(tcpSenderMessage);
+    seqno_ = seqno_ + tcpSenderMessage.sequence_length();
   }
-  tcpSenderMessage.seqno = seqno_;
-  tcpSenderMessage.payload = payload_;
-  tcpSenderMessage.FIN = input_.reader().is_finished();
-  tcpSenderMessage.RST = input_.has_error();
-  transmit(tcpSenderMessage);
-  outstanding_segs_.push(tcpSenderMessage);
-  wnd_size_ -= payload_.size();
-  seqno_ = seqno_ + tcpSenderMessage.sequence_length();
 }
 
 TCPSenderMessage TCPSender::make_empty_message() const
@@ -56,32 +76,30 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
   if (msg.RST) {
     input_.set_error();
   }
-  if (msg.window_size > 0) {
-    wnd_size_ = msg.window_size;
-    zero_wnd_ = false;
-  } else {
-    wnd_size_ = 1;
-    zero_wnd_ = true;
-  }
-  if(msg.ackno.has_value()) {
+  if(msg.ackno.has_value() && sync_) {
     Wrap32 new_ackno = msg.ackno.value();
-    if (unwrap_num(new_ackno) <= unwrap_num(cur_ackno_)) {
+    if (unwrap_num(new_ackno) < unwrap_num(cur_ackno_)) {
       return;
     }
     if (unwrap_num(new_ackno) > unwrap_num(seqno_)) {
       return;
     }
     cur_ackno_ = new_ackno;
-    RTO_ms_ = initial_RTO_ms_;
     // Remove acked segments
     while(!outstanding_segs_.empty() 
           && unwrap_num(cur_ackno_) > unwrap_num(outstanding_segs_.front().seqno)) {
             outstanding_segs_.pop();
     }
-    if(fin) {
-      fin_ack_ = true;
-    }
+  }
+  if (msg.window_size > 0) {
+    wnd_size_ = msg.window_size;
+    zero_wnd_ = false;
     rtrns_cnt_ = 0;
+    RTO_ms_ = initial_RTO_ms_;
+    rtrns_timer_ = 0;
+  } else {
+    wnd_size_ = 1;
+    zero_wnd_ = true;
   }
 }
 
@@ -96,20 +114,14 @@ void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& trans
     RTO_ms_ = initial_RTO_ms_;
     return;
   }
-  if (rtrns_timer_ != 0) {
-    rtrns_timer_ += ms_since_last_tick;
-  }else {
-    rtrns_timer_ = ms_since_last_tick;
-  }
+  
+  rtrns_timer_ += ms_since_last_tick;
   
   if(rtrns_timer_ >= RTO_ms_) {
     transmit(outstanding_segs_.front()); // Retransmit the oldest unACKed segment
     if (!zero_wnd_) {
       RTO_ms_ *= 2; // Double the retransmission time
     }
-    // else if (zero_wnd_){
-    //   RTO_ms_ = initial_RTO_ms_; 
-    // }
     rtrns_cnt_ ++;
     rtrns_timer_ = 0; 
   }

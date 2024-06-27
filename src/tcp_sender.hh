@@ -61,6 +61,6 @@ private:
   uint16_t wnd_size_ {1};
   bool zero_wnd_ {false};
   bool sync_ {false};
-  bool fin_ack_ {false};
-  bool fin {false};
+  bool fin_ {false};
+  bool fin_sent_ {false};
 };
