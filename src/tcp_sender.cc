@@ -108,6 +108,9 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
           && unwrap_num(cur_ackno_) >= unwrap_num(outstanding_segs_.front().seqno) + outstanding_segs_.front().sequence_length()) {
             outstanding_segs_.pop();
     }
+    if (!outstanding_segs_.empty()) {
+      cur_ackno_ = outstanding_segs_.front().seqno;
+    }
   }
   
   if (msg.window_size > 0) {
