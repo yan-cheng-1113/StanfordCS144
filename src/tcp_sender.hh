@@ -46,6 +46,9 @@ public:
 
   // Convert a Wrap32 type into uint64_t type
   uint64_t unwrap_num ( const Wrap32& num ) const { return num.unwrap(isn_, this->input_.reader().bytes_popped()); }
+  
+  // Update FIN flags
+  bool FIN_sent (uint64_t pay_size);
 
 private:
   // Variables initialized in constructor

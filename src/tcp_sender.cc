@@ -15,24 +15,36 @@ uint64_t TCPSender::consecutive_retransmissions() const
   return rtrns_cnt_;
 }
 
-void TCPSender::push( const TransmitFunction& transmit )
+bool TCPSender:: FIN_sent (uint64_t pay_size)
 {
-  // Your code here.
-  while(sequence_numbers_in_flight() < wnd_size_){
-    uint64_t pay_size = reader().bytes_buffered();
-    // If the writer has been closed, check if there is space for fin. 
+  // If the writer has been closed, check if there is space for fin. 
     // To avoid mutilpe fins, check for max_payload_size
     if (input_.writer().is_closed() 
         && pay_size < wnd_size_ 
         && pay_size <= TCPConfig::MAX_PAYLOAD_SIZE) {
       // If fin has been sent, just return
       if (fin_sent_) {
-        return;
+        return true;
       }
       fin_ = true;
     }
+    return false;
+}
+
+void TCPSender::push( const TransmitFunction& transmit )
+{
+  // Your code here.
+  uint64_t pay_size = reader().bytes_buffered();
+  if (FIN_sent(pay_size)) {
+    return;
+  }
+  while(sequence_numbers_in_flight() < wnd_size_){
     // If fin has been sent, just return
     if (fin_sent_){
+      return;
+    }
+    pay_size = reader().bytes_buffered();
+    if (FIN_sent (pay_size) ) {
       return;
     }
     TCPSenderMessage tcpSenderMessage {.seqno = seqno_, .FIN = fin_, .RST = input_.has_error()};
@@ -79,7 +91,8 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
     Wrap32 new_ackno = msg.ackno.value();
 
     // Ignore old ACKs
-    if (unwrap_num(new_ackno) <= unwrap_num(cur_ackno_)) {
+    if (unwrap_num(new_ackno) <= unwrap_num(cur_ackno_) 
+    && !writer().is_closed() && !fin_sent_) {
       return;
     }
     // Ignore ACKs that are out of range
@@ -87,19 +100,16 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
       return;
     }
 
-    if (!outstanding_segs_.empty()) {
-      if (unwrap_num(new_ackno) < unwrap_num(cur_ackno_) + outstanding_segs_.front().sequence_length()){
-        return;
-      }
-    }
-
-    cur_ackno_ = new_ackno;
+   if (unwrap_num(new_ackno) > unwrap_num(cur_ackno_)) {
+      cur_ackno_ = new_ackno;
+   }
     // Remove acked segments
     while(!outstanding_segs_.empty() 
-          && unwrap_num(cur_ackno_) > unwrap_num(outstanding_segs_.front().seqno)) {
+          && unwrap_num(cur_ackno_) >= unwrap_num(outstanding_segs_.front().seqno) + outstanding_segs_.front().sequence_length()) {
             outstanding_segs_.pop();
     }
   }
+  
   if (msg.window_size > 0) {
     wnd_size_ = msg.window_size;
     zero_wnd_ = false;
