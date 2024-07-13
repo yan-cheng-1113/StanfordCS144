@@ -21,11 +21,16 @@ void Router::add_route( const uint32_t route_prefix,
        << " on interface " << interface_num << "\n";
 
   // Your code here.
-  routing_items.push_back(RoutingItem{route_prefix, prefix_length, next_hop, interface_num});
+  routing_items_.push_back(RoutingItem{route_prefix, prefix_length, next_hop, interface_num});
 }
 
 // Go through all the interfaces, and route every incoming datagram to its proper outgoing interface.
 void Router::route()
 {
   // Your code here.
+  for (auto it = routing_items_.begin(); it != routing_items_.end(); it++){
+    shared_ptr<NetworkInterface>  cur_Interface = interface(it->interface_num_);
+    queue<InternetDatagram>& datagrams = cur_Interface->datagrams_received();
+  }
+
 }
