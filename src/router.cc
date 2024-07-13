@@ -21,6 +21,7 @@ void Router::add_route( const uint32_t route_prefix,
        << " on interface " << interface_num << "\n";
 
   // Your code here.
+  routing_items.push_back(RoutingItem{route_prefix, prefix_length, next_hop, interface_num});
 }
 
 // Go through all the interfaces, and route every incoming datagram to its proper outgoing interface.
