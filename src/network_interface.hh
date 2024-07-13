@@ -1,7 +1,7 @@
 #pragma once
 
 #include <queue>
-
+#include <map>
 #include "address.hh"
 #include "ethernet_frame.hh"
 #include "ipv4_datagram.hh"
@@ -73,6 +73,8 @@ private:
   std::shared_ptr<OutputPort> port_;
   void transmit( const EthernetFrame& frame ) const { port_->transmit( *this, frame ); }
 
+  void send_arp(uint16_t opcode, uint32_t sender_ip_address, uint32_t target_ip_address, EthernetAddress dst);
+
   // Ethernet (known as hardware, network-access-layer, or link-layer) address of the interface
   EthernetAddress ethernet_address_;
 
@@ -81,4 +83,10 @@ private:
 
   // Datagrams that have been received
   std::queue<InternetDatagram> datagrams_received_ {};
+
+  std::map<uint32_t, EthernetAddress> mapping_{};
+  std::queue<std::pair<uint32_t, InternetDatagram>> pending_datagrams_ {};
+  std::map<uint32_t, size_t> pending_ip_ {};
+  size_t timer_ {0};
+  std::queue<std::pair<size_t, uint32_t>> pending_timer_{};
 };
