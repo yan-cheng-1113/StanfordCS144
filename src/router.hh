@@ -44,7 +44,7 @@ private:
   struct RoutingItem {
     uint32_t route_prefix_ {0};
     uint8_t prefix_length_ {0};
-    optional<Address> next_hop_ {nullopt};
+    std::optional<Address> next_hop_ {std::nullopt};
     size_t interface_num_ {0}; 
   };
   std::vector<RoutingItem> routing_table_ {};

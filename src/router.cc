@@ -35,11 +35,12 @@ void Router::route()
   }
   // Loop through all the interfaces
    for (auto it = _interfaces.begin(); it != _interfaces.end(); it++) {
-    bool drop = true;
+    bool match = false;
     // Get datagrams of the current interface
     std::queue<InternetDatagram> datagrams = it->get()->datagrams_received();
     while (!datagrams.empty()) {
       InternetDatagram datagram = datagrams.front();
+      // If the TTL was zero already, or hits zero after the decrement, the router should drop the datagram.
       if (datagram.header.ttl <= 1) {
         datagrams.pop();
         break;
@@ -50,14 +51,14 @@ void Router::route()
       for (auto routeItem = routing_table_.begin(); routeItem != routing_table_.end(); routeItem++) {
         if (prefix_equal(datagram.header.dst, routeItem->route_prefix_, routeItem->prefix_length_)) {
           if (routeItem->prefix_length_ > longest_Prefix) {
-            drop = false;
+            match = true;
             longest_Prefix = routeItem->prefix_length_;
             next_hop = routeItem->next_hop_;
             interface_num = routeItem->interface_num_;
           }
         }
       }
-      if (drop) {
+      if (!match) {
         datagrams.pop();
         break;
       }
