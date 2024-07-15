@@ -21,16 +21,54 @@ void Router::add_route( const uint32_t route_prefix,
        << " on interface " << interface_num << "\n";
 
   // Your code here.
-  routing_items_.push_back(RoutingItem{route_prefix, prefix_length, next_hop, interface_num});
+  routing_table_.push_back(RoutingItem{route_prefix, prefix_length, next_hop, interface_num});
 }
 
 // Go through all the interfaces, and route every incoming datagram to its proper outgoing interface.
 void Router::route()
 {
   // Your code here.
-  for (auto it = routing_items_.begin(); it != routing_items_.end(); it++){
-    shared_ptr<NetworkInterface>  cur_Interface = interface(it->interface_num_);
-    queue<InternetDatagram>& datagrams = cur_Interface->datagrams_received();
+
+  // Interfaces empty, return
+  if (_interfaces.empty()) {
+    return;
+  }
+  // Loop through all the interfaces
+   for (auto it = _interfaces.begin(); it != _interfaces.end(); it++) {
+    bool drop = true;
+    // Get datagrams of the current interface
+    std::queue<InternetDatagram> datagrams = it->get()->datagrams_received();
+    while (!datagrams.empty()) {
+      InternetDatagram datagram = datagrams.front();
+      if (datagram.header.ttl <= 1) {
+        datagrams.pop();
+        break;
+      }
+      uint8_t longest_Prefix = 0; // longest matching prefix
+      optional<Address> next_hop = nullopt;
+      size_t interface_num = 0;
+      for (auto routeItem = routing_table_.begin(); routeItem != routing_table_.end(); routeItem++) {
+        if (prefix_equal(datagram.header.dst, routeItem->route_prefix_, routeItem->prefix_length_)) {
+          if (routeItem->prefix_length_ > longest_Prefix) {
+            drop = false;
+            longest_Prefix = routeItem->prefix_length_;
+            next_hop = routeItem->next_hop_;
+            interface_num = routeItem->interface_num_;
+          }
+        }
+      }
+      if (drop) {
+        datagrams.pop();
+        break;
+      }
+      datagram.header.ttl -= 1;
+      if (next_hop.has_value()) {
+        _interfaces[interface_num]->send_datagram(datagram, next_hop.value());
+      } else {
+        _interfaces[interface_num]->send_datagram(datagram, Address::from_ipv4_numeric(datagram.header.dst));
+      }
+      break;
+    }
   }
 
 }

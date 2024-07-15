@@ -33,6 +33,12 @@ public:
   void route();
 
 private:
+  // Compare the prefixes of two ip addresses
+  bool prefix_equal(uint32_t ip1, uint32_t ip2, uint8_t prefix_len) 
+  {
+    uint32_t offset = (prefix_len == 0) ? 0 : 0xffffffff << (32 - prefix_len);
+    return (ip1 & offset) == (ip2 & offset);
+  }  
   // The router's collection of network interfaces
   std::vector<std::shared_ptr<NetworkInterface>> _interfaces {};
   struct RoutingItem {
@@ -41,5 +47,5 @@ private:
     optional<Address> next_hop_ {nullopt};
     size_t interface_num_ {0}; 
   };
-  std::vector<RoutingItem> routing_items_ {};
+  std::vector<RoutingItem> routing_table_ {};
 };
